@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Súper Rifa — Generador de Boletos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --rojo: #9B111E;
+      --rojo-dark: #6B0010;
+      --oro: #D4AF37;
+      --bg: #F5F5F5;
+      --card: #FFFFFF;
+      --text: #1A1A1A;
+      --text-muted: #666666;
+      --border: #E0E0E0;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --shadow: 0 2px 16px rgba(0,0,0,0.08);
+    }
+    body { font-family: 'Montserrat', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .site-header {
+      background: linear-gradient(135deg, var(--rojo-dark) 0%, var(--rojo) 100%);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .site-header-logo { cursor: pointer; display: flex; align-items: center; gap: 14px; }
+    .logo-icon { width: 48px; height: 48px; background: var(--oro); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .header-texts h1 { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
+    .header-texts p { font-size: 11px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+
+    .main-wrap { max-width: 560px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .form-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1.25rem; }
+    .form-card h2 { font-size: 14px; font-weight: 700; color: var(--rojo); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px; }
+    .form-card h2::before { content: ''; display: inline-block; width: 3px; height: 16px; background: var(--rojo); border-radius: 2px; }
+
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .field input, .field select { width: 100%; padding: 12px 14px; font-family: 'Montserrat', sans-serif; font-size: 15px; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: #FAFAFA; color: var(--text); outline: none; transition: border-color 0.15s; }
+    .field input:focus, .field select:focus { border-color: var(--rojo); background: #fff; }
+    .field input::placeholder { color: #BDBDBD; font-weight: 400; }
+
+    .cantidad-row { display: flex; align-items: center; gap: 10px; }
+    .cantidad-row select { flex: 1; }
+    .precio-hint { font-size: 13px; font-weight: 700; color: var(--rojo); white-space: nowrap; }
+
+    .btn-generar { width: 100%; padding: 15px; background: linear-gradient(135deg, var(--rojo) 0%, var(--rojo-dark) 100%); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Montserrat', sans-serif; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
+    .btn-generar:hover { opacity: 0.92; }
+    .btn-generar:active { transform: scale(0.98); }
+    .btn-generar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(80px); background: #1A1A1A; color: #fff; padding: 12px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; z-index: 9999; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; pointer-events: none; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: #1B5E20; }
+    .toast.error { background: #B71C1C; }
+
+    .result-section { display: none; }
+    .result-section.visible { display: block; }
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .result-header h2 { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .download-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
+    .btn-dl { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-radius: var(--radius-sm); font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; text-transform: uppercase; letter-spacing: 0.5px; }
+    .btn-dl:active { transform: scale(0.97); }
+    .btn-dl svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .btn-pdf { background: var(--rojo); color: #fff; }
+    .btn-pdf:hover { background: var(--rojo-dark); }
+    .btn-png { background: #1A1A1A; color: #fff; }
+    .btn-png:hover { background: #333; }
+
+    #tickets-render-area { position: fixed; left: -9999px; top: 0; pointer-events: none; }
+
+    .ticket-render { width: 760px; height: 290px; display: flex; background: #0a0a0a; border-radius: 16px; overflow: hidden; font-family: 'Montserrat', sans-serif; margin-bottom: 20px; }
+    .ticket-render .tmain { flex: 1; background: linear-gradient(135deg, rgba(155,17,30,0.97) 0%, rgba(74,0,0,0.97) 100%); padding: 22px 26px; display: flex; flex-direction: column; justify-content: space-between; border-right: 3px dashed rgba(212,175,55,0.35); }
+    .ticket-render .thead-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+    .ticket-render .t-event { font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: #D4AF37; font-weight: 700; }
+    .ticket-render .t-badge { background: #D4AF37; color: #4a0000; padding: 4px 11px; border-radius: 20px; font-size: 10px; font-weight: 900; }
+    .ticket-render .t-title { font-size: 44px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1; margin-bottom: 14px; }
+    .ticket-render .t-prizes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: rgba(0,0,0,0.25); padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+    .ticket-render .t-prize { font-size: 10px; color: #fff; font-weight: 500; }
+    .ticket-render .t-fields { display: flex; flex-direction: column; gap: 6px; }
+    .ticket-render .t-field { display: flex; align-items: baseline; gap: 8px; }
+    .ticket-render .t-field-label { font-size: 9px; color: #D4AF37; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 100px; flex-shrink: 0; }
+    .ticket-render .t-field-val { font-size: 13px; font-weight: 700; color: #fff; text-transform: uppercase; }
+    .ticket-render .t-legal { font-size: 8px; color: rgba(255,255,255,0.4); margin-top: 10px; font-weight: 300; }
+    .ticket-render .tstub { width: 185px; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; flex-shrink: 0; }
+    .ticket-render .t-number { font-size: 42px; font-weight: 900; color: #fff; letter-spacing: 2px; }
+    .ticket-render .t-barcode { width: 130px; height: 48px; background: repeating-linear-gradient(to right, #fff, #fff 3px, transparent 3px, transparent 5px, #fff 5px, #fff 6px, transparent 6px, transparent 10px, #fff 10px, #fff 14px, transparent 14px, transparent 16px, #fff 16px, #fff 19px, transparent 19px, transparent 23px, #fff 23px, #fff 25px, transparent 25px, transparent 28px); opacity: 0.65; }
+
+    .tickets-list { display: flex; flex-direction: column; gap: 10px; }
+    .ticket-preview { display: flex; background: #0a0a0a; border-radius: 10px; overflow: hidden; height: 88px; }
+    .tp-main { flex: 1; background: linear-gradient(135deg, rgba(155,17,30,0.97) 0%, rgba(74,0,0,0.97) 100%); padding: 10px 14px; display: flex; flex-direction: column; justify-content: space-between; border-right: 2px dashed rgba(212,175,55,0.35); }
+    .tp-top { display: flex; justify-content: space-between; align-items: center; }
+    .tp-event { font-size: 7px; color: #D4AF37; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+    .tp-val { background: #D4AF37; color: #4a0000; padding: 2px 7px; border-radius: 10px; font-size: 8px; font-weight: 900; }
+    .tp-title { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
+    .tp-bottom { display: flex; gap: 14px; }
+    .tp-field { font-size: 7.5px; }
+    .tp-field span { color: #D4AF37; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+    .tp-field strong { color: #fff; font-size: 9px; }
+    .tp-stub { width: 72px; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 8px; flex-shrink: 0; }
+    .tp-num { font-size: 15px; font-weight: 900; color: #fff; letter-spacing: 1px; }
+    .tp-bar { width: 52px; height: 14px; background: repeating-linear-gradient(to right, #fff, #fff 2px, transparent 2px, transparent 4px, #fff 4px, #fff 5px, transparent 5px, transparent 7px, #fff 7px, #fff 9px, transparent 9px, transparent 12px); opacity: 0.55; }
+
+    /* ADMIN */
+    .admin-section { display: none; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 1.25rem; overflow: hidden; }
+    .admin-section.open { display: block; }
+    .admin-header { background: #1A1A1A; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+    .admin-header h2 { font-size: 13px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1.5px; }
+    .admin-close { background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #fff; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: 'Montserrat', sans-serif; }
+    .admin-body { padding: 1.25rem; }
+
+    .firebase-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
+    .firebase-status.ok { background: #E8F5E9; color: #2E7D32; }
+    .firebase-status.err { background: #FFEBEE; color: #C62828; }
+    .firebase-status .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .firebase-status.ok .dot { background: #2E7D32; }
+    .firebase-status.err .dot { background: #C62828; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+    .stat-card { background: #F5F5F5; border-radius: var(--radius-sm); padding: 12px 14px; }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .stat-val { font-size: 22px; font-weight: 700; color: var(--text); }
+    .stat-sub { font-size: 11px; color: var(--text-muted); }
+
+    .table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th { text-align: left; padding: 8px 12px; background: #F5F5F5; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tbody tr:last-child td { border-bottom: none; }
+    .pill { display: inline-block; background: #FFF3E0; color: #E65100; border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .pill-green { background: #E8F5E9; color: #2E7D32; }
+    .pill-gray { background: #F5F5F5; color: #666; }
+
+    .section-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin: 1rem 0 8px; }
+
+    .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 1rem; }
+    .btn-admin { padding: 11px; border-radius: var(--radius-sm); font-family: 'Montserrat', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--text); transition: background 0.15s; }
+    .btn-admin:hover { background: #F5F5F5; }
+    .btn-admin.danger { border-color: #FFCDD2; color: #C62828; }
+    .btn-admin.danger:hover { background: #FFEBEE; }
+    .btn-admin.primary { background: var(--rojo); color: #fff; border-color: var(--rojo); }
+    .btn-admin.primary:hover { background: var(--rojo-dark); }
+
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; }
+    .loading-overlay.show { display: flex; }
+    .loading-spinner { width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    .loading-text { color: #fff; font-size: 14px; font-weight: 600; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer { text-align: center; padding: 1.5rem; font-size: 11px; color: #BDBDBD; }
+
+    @media (max-width: 480px) {
+      .download-btns { grid-template-columns: 1fr; }
+      .admin-actions { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-logo" id="logoZone">
+    <div class="logo-icon">🎟️</div>
+    <div class="header-texts">
+      <h1>Súper Rifa</h1>
+      <p>Sorteo Fin de Parciales · 19 de Julio</p>
+    </div>
+  </div>
+</header>
+
+<div class="main-wrap">
+
+  <!-- PANEL ADMIN (oculto) -->
+  <div class="admin-section" id="adminPanel">
+    <div class="admin-header">
+      <h2>🔒 Panel de Administrador</h2>
+      <button class="admin-close" onclick="cerrarAdmin()">Cerrar ✕</button>
+    </div>
+    <div class="admin-body">
+
+      <div class="firebase-status" id="fbStatus">
+        <div class="dot"></div>
+        <span id="fbStatusText">Conectando a Firebase...</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total vendidos</div>
+          <div class="stat-val" id="statTotal">—</div>
+          <div class="stat-sub">boletos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Recaudado</div>
+          <div class="stat-val" id="statRecaudado">—</div>
+          <div class="stat-sub">a cobrar</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Comisiones</div>
+          <div class="stat-val" id="statComisiones">—</div>
+          <div class="stat-sub">por pagar</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ganancia neta</div>
+          <div class="stat-val" id="statNeta">—</div>
+          <div class="stat-sub">estimada</div>
+        </div>
+      </div>
+
+      <p class="section-label">Por referido</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Referido</th><th>Boletos</th><th>Comisión</th><th>Estado</th></tr></thead>
+          <tbody id="referidosTbody"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+
+      <p class="section-label">Registro completo</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Boleto(s)</th><th>Comprador</th><th>Referido</th><th>Fecha/Hora</th></tr></thead>
+          <tbody id="logTbody"><tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="admin-actions">
+        <button class="btn-admin primary" onclick="exportarCSV()">⬇ Exportar CSV</button>
+        <button class="btn-admin" onclick="togglePagados()">✔ Marcar pagados</button>
+        <button class="btn-admin danger" onclick="reiniciarContador()">↺ Reiniciar contador</button>
+        <button class="btn-admin danger" onclick="borrarTodo()">🗑 Borrar todo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORMULARIO -->
+  <div class="form-card">
+    <h2>Datos del boleto</h2>
+    <div class="field">
+      <label for="compradorInput">Nombre del comprador</label>
+      <input type="text" id="compradorInput" placeholder="Ej: Juan Pérez" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="referidoInput">Tu nombre (quien vende)</label>
+      <input type="text" id="referidoInput" placeholder="Ej: María García" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="cantidadInput">Cantidad de boletos</label>
+      <div class="cantidad-row">
+        <select id="cantidadInput" onchange="actualizarPrecio()">
+          <option value="1">1 boleto</option>
+          <option value="2">2 boletos</option>
+          <option value="3">3 boletos</option>
+          <option value="4">4 boletos</option>
+          <option value="5">5 boletos</option>
+          <option value="6">6 boletos</option>
+          <option value="7">7 boletos</option>
+          <option value="8">8 boletos</option>
+          <option value="9">9 boletos</option>
+          <option value="10">10 boletos</option>
+        </select>
+        <span class="precio-hint" id="precioHint">= S/ 5.00</span>
+      </div>
+    </div>
+    <button class="btn-generar" id="btnGenerar" onclick="generarBoletos()">🎟 Generar boletos</button>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="result-section" id="resultSection">
+    <div class="result-header">
+      <h2 id="resultLabel">Boletos generados</h2>
+    </div>
+    <div class="download-btns">
+      <button class="btn-dl btn-pdf" onclick="descargarPDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Descargar PDF
+      </button>
+      <button class="btn-dl btn-png" onclick="descargarPNG()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Descargar imagen
+      </button>
+    </div>
+    <div class="tickets-list" id="ticketsList"></div>
+  </div>
+
+</div>
+
+<footer>Súper Rifa · Sorteo Fin de Parciales</footer>
+
+<div id="tickets-render-area"></div>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">Generando...</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, runTransaction, push, onValue, update, remove, get }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC8GHUiDDKyYSL5i7mOYaMQOEoc75PvlyI",
+    authDomain: "super-rifa-2303.firebaseapp.com",
+    databaseURL: "https://super-rifa-2303-default-rtdb.firebaseio.com",
+    projectId: "super-rifa-2303",
+    storageBucket: "super-rifa-2303.firebasestorage.app",
+    messagingSenderId: "298435433267",
+    appId: "1:298435433267:web:b2d0c67bdc8a9a0bf76446"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  const counterRef = ref(db, 'rifa/contador');
+  const ventasRef  = ref(db, 'rifa/ventas');
+  const pagadosRef = ref(db, 'rifa/pagados');
+
+  let ventasCache  = {};
+  let pagadosCache = {};
+  let fbOk = false;
+
+  // ── Verificar conexión ──────────────────────────────────────────
+  get(counterRef).then(() => {
+    fbOk = true;
+    setFbStatus(true);
+    document.getElementById('btnGenerar').disabled = false;
+  }).catch(() => {
+    setFbStatus(false);
+    document.getElementById('btnGenerar').disabled = true;
+  });
+
+  function setFbStatus(ok) {
+    const el = document.getElementById('fbStatus');
+    const tx = document.getElementById('fbStatusText');
+    if (!el) return;
+    el.className = 'firebase-status ' + (ok ? 'ok' : 'err');
+    tx.textContent = ok ? 'Conectado a Firebase — datos en tiempo real' : 'Sin conexión a Firebase. Revisa tu internet.';
+  }
+
+  // ── Escuchar ventas en tiempo real (para admin) ─────────────────
+  onValue(ventasRef, snap => {
+    ventasCache = snap.val() || {};
+    if (document.getElementById('adminPanel').classList.contains('open')) actualizarAdmin();
+  });
+  onValue(pagadosRef, snap => {
+    pagadosCache = snap.val() || {};
+    if (document.getElementById('adminPanel').classList.contains('open')) actualizarAdmin();
+  });
+
+  // ── Generar boletos con contador atómico ────────────────────────
+  window._generarBoletosFirebase = async function(comprador, referido, cantidad) {
+    let numerosAsignados = [];
+
+    await runTransaction(counterRef, current => {
+      const inicio = (current || 0) + 1;
+      numerosAsignados = [];
+      for (let i = 0; i < cantidad; i++) numerosAsignados.push(fmt(inicio + i));
+      return (current || 0) + cantidad;
+    });
+
+    const entrada = {
+      comprador,
+      referido,
+      nums: numerosAsignados,
+      fecha: new Date().toLocaleString('es-PE', { hour12: false }),
+      ts: Date.now()
+    };
+
+    await push(ventasRef, entrada);
+    return numerosAsignados;
+  };
+
+  // ── Admin: actualizar panel ─────────────────────────────────────
+  window._actualizarAdmin = function() {
+    const ventas = Object.values(ventasCache);
+    const totalBoletos = ventas.reduce((s, v) => s + (v.nums ? v.nums.length : 0), 0);
+    const recaudado    = totalBoletos * 5;
+
+    const mapRef = {};
+    ventas.forEach(v => {
+      if (!v.referido) return;
+      if (!mapRef[v.referido]) mapRef[v.referido] = 0;
+      mapRef[v.referido] += v.nums ? v.nums.length : 0;
+    });
+    const totalComisiones = Object.values(mapRef).reduce((s, q) => s + Math.floor(q / 3) * 4, 0);
+
+    document.getElementById('statTotal').textContent      = totalBoletos;
+    document.getElementById('statRecaudado').textContent  = 'S/ ' + recaudado;
+    document.getElementById('statComisiones').textContent = 'S/ ' + totalComisiones;
+    document.getElementById('statNeta').textContent       = 'S/ ' + (recaudado - totalComisiones);
+
+    // Tabla referidos
+    const tbody = document.getElementById('referidosTbody');
+    if (!Object.keys(mapRef).length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem">Sin ventas aún</td></tr>';
+    } else {
+      tbody.innerHTML = Object.entries(mapRef).sort((a,b) => b[1]-a[1]).map(([ref, q]) => {
+        const com = Math.floor(q / 3) * 4;
+        const pagado = pagadosCache[btoa(ref)];
+        return `<tr>
+          <td><strong>${ref}</strong></td>
+          <td><span class="pill">${q}</span></td>
+          <td>S/ ${com}</td>
+          <td><span class="pill ${pagado ? 'pill-green' : 'pill-gray'}">${pagado ? 'Pagado ✓' : 'Pendiente'}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Tabla log
+    const logTbody = document.getElementById('logTbody');
+    if (!ventas.length) {
+      logTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem">Sin ventas aún</td></tr>';
+    } else {
+      logTbody.innerHTML = ventas.sort((a,b) => b.ts - a.ts).map(v => `
+        <tr>
+          <td>${(v.nums || []).map(n => '#'+n).join(', ')}</td>
+          <td>${v.comprador}</td>
+          <td>${v.referido}</td>
+          <td>${v.fecha}</td>
+        </tr>`).join('');
+    }
+
+    setFbStatus(true);
+  };
+
+  // ── Toggle pagados ──────────────────────────────────────────────
+  window._togglePagados = async function() {
+    const ventas = Object.values(ventasCache);
+    const mapRef = {};
+    ventas.forEach(v => { if (v.referido) mapRef[v.referido] = true; });
+    const refs = Object.keys(mapRef);
+    const todosPagados = refs.every(r => pagadosCache[btoa(r)]);
+    const updates = {};
+    refs.forEach(r => { updates[btoa(r)] = !todosPagados; });
+    await update(pagadosRef, updates);
+    toast(todosPagados ? 'Marcados como pendientes' : 'Marcados como pagados', 'success');
+  };
+
+  // ── Reiniciar contador ──────────────────────────────────────────
+  window._reiniciarContador = async function() {
+    await update(ref(db, 'rifa'), { contador: 0 });
+    toast('Contador reiniciado a #0001', 'success');
+  };
+
+  // ── Borrar todo ─────────────────────────────────────────────────
+  window._borrarTodo = async function() {
+    await remove(ref(db, 'rifa'));
+    toast('Todos los datos borrados', 'success');
+  };
+
+  // ── Exportar CSV ────────────────────────────────────────────────
+  window._exportarCSV = function() {
+    const ventas = Object.values(ventasCache);
+    if (!ventas.length) { toast('No hay datos para exportar', 'error'); return; }
+
+    const mapRef = {};
+    ventas.forEach(v => {
+      if (!mapRef[v.referido]) mapRef[v.referido] = 0;
+      mapRef[v.referido] += v.nums ? v.nums.length : 0;
+    });
+
+    const rows = [['Boleto(s)', 'Comprador', 'Vendido por', 'Fecha/Hora', 'Cantidad', 'Valor (S/)', 'Comision referido (S/)']];
+    ventas.sort((a,b) => a.ts - b.ts).forEach(v => {
+      rows.push([
+        (v.nums || []).map(n => '#'+n).join(' | '),
+        v.comprador,
+        v.referido,
+        v.fecha,
+        v.nums ? v.nums.length : 0,
+        (v.nums ? v.nums.length : 0) * 5,
+        Math.floor(mapRef[v.referido] / 3) * 4
+      ]);
+    });
+
+    const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'super_rifa_ventas_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('CSV exportado', 'success');
+  };
+
+</script>
+
+<script>
+  // ── Helpers ─────────────────────────────────────────────────────
+  function fmt(n) { return String(n).padStart(4, '0'); }
+
+  let boletoActual = null;
+
+  function actualizarPrecio() {
+    const q = parseInt(document.getElementById('cantidadInput').value);
+    document.getElementById('precioHint').textContent = '= S/ ' + (q * 5).toFixed(2);
+  }
+  actualizarPrecio();
+
+  // ── Logo: 5 clics para admin ────────────────────────────────────
+  let logoClicks = 0, logoTimer = null;
+  document.getElementById('logoZone').addEventListener('click', () => {
+    logoClicks++;
+    clearTimeout(logoTimer);
+    if (logoClicks >= 5) { logoClicks = 0; abrirAdmin(); }
+    else logoTimer = setTimeout(() => { logoClicks = 0; }, 2000);
+  });
+
+  // ── Generar boletos ─────────────────────────────────────────────
+  async function generarBoletos() {
+    const comprador = document.getElementById('compradorInput').value.trim();
+    const referido  = document.getElementById('referidoInput').value.trim();
+    const cantidad  = parseInt(document.getElementById('cantidadInput').value);
+    if (!comprador) { toast('Ingresa el nombre del comprador', 'error'); return; }
+    if (!referido)  { toast('Ingresa tu nombre (quien vende)', 'error'); return; }
+
+    showLoading('Registrando en Firebase...');
+    try {
+      const nums = await window._generarBoletosFirebase(comprador, referido, cantidad);
+      boletoActual = { comprador, referido, nums };
+      renderPreview(boletoActual);
+      document.getElementById('resultSection').classList.add('visible');
+      document.getElementById('resultLabel').textContent = nums.length === 1 ? '1 boleto generado' : nums.length + ' boletos generados';
+      document.getElementById('compradorInput').value = '';
+      document.getElementById('cantidadInput').value  = '1';
+      actualizarPrecio();
+      toast('¡Boleto(s) listos para descargar!', 'success');
+      document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch(e) {
+      console.error(e);
+      toast('Error al conectar con Firebase. Revisa tu internet.', 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  // ── Preview ─────────────────────────────────────────────────────
+  function renderPreview({ comprador, referido, nums }) {
+    document.getElementById('ticketsList').innerHTML = nums.map(num => `
+      <div class="ticket-preview">
+        <div class="tp-main">
+          <div class="tp-top">
+            <span class="tp-event">Sorteo Fin de Parciales</span>
+            <span class="tp-val">S/ 5.00</span>
+          </div>
+          <div class="tp-title">SÚPER RIFA</div>
+          <div class="tp-bottom">
+            <div class="tp-field"><span>Comprador</span><strong>${comprador}</strong></div>
+            <div class="tp-field"><span>Referido por</span><strong>${referido}</strong></div>
+          </div>
+        </div>
+        <div class="tp-stub">
+          <div class="tp-num">#${num}</div>
+          <div class="tp-bar"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── Render para descarga ─────────────────────────────────────────
+  function buildTicketHTML({ comprador, referido, num }) {
+    return `<div class="ticket-render">
+      <div class="tmain">
+        <div>
+          <div class="thead-row">
+            <span class="t-event">Sorteo Fin de Parciales</span>
+            <span class="t-badge">VALOR: S/ 5.00</span>
+          </div>
+          <div class="t-title">SÚPER RIFA</div>
+          <div class="t-prizes">
+            <span class="t-prize">🎮 1er: PS3 + Juegos</span>
+            <span class="t-prize">🥃 2do: Canasta Absolut</span>
+            <span class="t-prize">🔋 3er: Power Bank Remax</span>
+            <span class="t-prize">🥤 4to: Pack Four Loko</span>
+          </div>
+          <div class="t-fields">
+            <div class="t-field"><span class="t-field-label">Comprador:</span><span class="t-field-val">${comprador}</span></div>
+            <div class="t-field"><span class="t-field-label">Referido por:</span><span class="t-field-val">${referido}</span></div>
+          </div>
+        </div>
+        <div class="t-legal">* Sorteo en vivo: Domingo 19 de Julio. El premio se entrega con presentación de DNI.</div>
+      </div>
+      <div class="tstub">
+        <div class="t-number">#${num}</div>
+        <div class="t-barcode"></div>
+      </div>
+    </div>`;
+  }
+
+  async function renderTickets(entrada) {
+    const area = document.getElementById('tickets-render-area');
+    area.innerHTML = '';
+    const canvases = [];
+    for (const num of entrada.nums) {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:absolute;left:0;top:0;';
+      wrapper.innerHTML = buildTicketHTML({ comprador: entrada.comprador, referido: entrada.referido, num });
+      area.appendChild(wrapper);
+      await new Promise(r => setTimeout(r, 80));
+      const canvas = await html2canvas(wrapper.querySelector('.ticket-render'), { scale: 2, backgroundColor: null, useCORS: true, logging: false });
+      canvases.push(canvas);
+      area.removeChild(wrapper);
+    }
+    return canvases;
+  }
+
+  async function descargarPDF() {
+    if (!boletoActual) return;
+    showLoading('Generando PDF...');
+    try {
+      const canvases = await renderTickets(boletoActual);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const maxW = pageW - 20, maxH = pageH - 20;
+      for (let i = 0; i < canvases.length; i++) {
+        if (i > 0) pdf.addPage();
+        const c = canvases[i];
+        const ratio = c.width / c.height;
+        let w = maxW, h = maxW / ratio;
+        if (h > maxH) { h = maxH; w = maxH * ratio; }
+        pdf.addImage(c.toDataURL('image/png'), 'PNG', (pageW-w)/2, (pageH-h)/2, w, h);
+      }
+      pdf.save('boleto_rifa_' + boletoActual.comprador.replace(/\s+/g,'_') + '.pdf');
+      toast('PDF descargado', 'success');
+    } catch(e) { console.error(e); toast('Error al generar PDF', 'error'); }
+    finally { hideLoading(); }
+  }
+
+  async function descargarPNG() {
+    if (!boletoActual) return;
+    showLoading('Generando imagen...');
+    try {
+      const canvases = await renderTickets(boletoActual);
+      const nombre = boletoActual.comprador.replace(/\s+/g,'_');
+      if (canvases.length === 1) {
+        const a = document.createElement('a');
+        a.href = canvases[0].toDataURL('image/png');
+        a.download = 'boleto_rifa_' + nombre + '.png';
+        a.click();
+      } else {
+        const W = canvases[0].width, GAP = 20;
+        const H = canvases.reduce((s,c) => s + c.height, 0) + GAP * (canvases.length - 1);
+        const merged = document.createElement('canvas');
+        merged.width = W; merged.height = H;
+        const ctx = merged.getContext('2d');
+        ctx.fillStyle = '#F5F5F5'; ctx.fillRect(0,0,W,H);
+        let y = 0;
+        for (const c of canvases) { ctx.drawImage(c,0,y); y += c.height + GAP; }
+        const a = document.createElement('a');
+        a.href = merged.toDataURL('image/png');
+        a.download = 'boletos_rifa_' + nombre + '.png';
+        a.click();
+      }
+      toast('Imagen descargada', 'success');
+    } catch(e) { console.error(e); toast('Error al generar imagen', 'error'); }
+    finally { hideLoading(); }
+  }
+
+  // ── Admin ────────────────────────────────────────────────────────
+  function abrirAdmin() {
+    document.getElementById('adminPanel').classList.add('open');
+    window._actualizarAdmin && window._actualizarAdmin();
+    document.getElementById('adminPanel').scrollIntoView({ behavior: 'smooth' });
+    toast('Panel abierto', 'success');
+  }
+  function cerrarAdmin() { document.getElementById('adminPanel').classList.remove('open'); }
+  function actualizarAdmin() { window._actualizarAdmin && window._actualizarAdmin(); }
+  function togglePagados() { window._togglePagados && window._togglePagados(); }
+  function reiniciarContador() { if (confirm('¿Reiniciar contador a #0001? El historial se mantiene.')) window._reiniciarContador && window._reiniciarContador(); }
+  function borrarTodo() { if (confirm('¿Borrar TODO? Esta acción no se puede deshacer.') && confirm('¿Seguro? Se perderán todas las ventas.')) window._borrarTodo && window._borrarTodo(); }
+  function exportarCSV() { window._exportarCSV && window._exportarCSV(); }
+
+  // ── UI helpers ───────────────────────────────────────────────────
+  function showLoading(msg) { document.getElementById('loadingText').textContent = msg; document.getElementById('loadingOverlay').classList.add('show'); }
+  function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+  let toastTimer;
+  function toast(msg, tipo) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast show ' + (tipo || '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+  }
+</script>
+</body>
+</html>
