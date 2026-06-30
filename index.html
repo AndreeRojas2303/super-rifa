@@ -392,7 +392,7 @@
       if (!mapRef[v.referido]) mapRef[v.referido] = 0;
       mapRef[v.referido] += v.nums ? v.nums.length : 0;
     });
-    const totalComisiones = Object.values(mapRef).reduce((s, q) => s + Math.floor(q / 3) * 4, 0);
+    const totalComisiones = Object.values(mapRef).reduce((s, q) => s + Math.floor(q / 3) * 5, 0);
 
     document.getElementById('statTotal').textContent      = totalBoletos;
     document.getElementById('statRecaudado').textContent  = 'S/ ' + recaudado;
@@ -405,7 +405,7 @@
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem">Sin ventas aún</td></tr>';
     } else {
       tbody.innerHTML = Object.entries(mapRef).sort((a,b) => b[1]-a[1]).map(([ref, q]) => {
-        const com = Math.floor(q / 3) * 4;
+        const com = Math.floor(q / 3) * 5;
         const pagado = pagadosCache[btoa(ref)];
         return `<tr>
           <td><strong>${ref}</strong></td>
@@ -478,7 +478,7 @@
         v.fecha,
         v.nums ? v.nums.length : 0,
         (v.nums ? v.nums.length : 0) * 5,
-        Math.floor(mapRef[v.referido] / 3) * 4
+        Math.floor(mapRef[v.referido] / 3) * 5
       ]);
     });
 
